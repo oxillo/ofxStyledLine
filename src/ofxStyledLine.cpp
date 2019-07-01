@@ -3,19 +3,18 @@
 // Shader is a static member
 ofShader ofxStyledLine::shader;
 
-ofxStyledLine::ofxStyledLine(/* args */)
-{
+ofxStyledLine::ofxStyledLine(/* args */){
     if( !shader.isLoaded() ){
         shader.load("shaders/vert.glsl", "shaders/frag.glsl", "shaders/geom.glsl");
     }
+    bHasColorChanged = false;
+    bHasThicknessChanged = false;
 }
 
-ofxStyledLine::~ofxStyledLine()
-{
+ofxStyledLine::~ofxStyledLine(){
 }
 
-void ofxStyledLine::addVertex( const ofDefaultVertexType& p )
-{
+void ofxStyledLine::addVertex( const ofDefaultVertexType& p ){
     ofPolyline::addVertex(p);
     colors.push_back( ofDefaultColorType(1.0,0.5,0.5) );
     thicknesses.push_back( 10.0);
@@ -38,21 +37,21 @@ void ofxStyledLine::addVertex( const ofDefaultVertexType& p )
 }
 
 
-void ofxStyledLine::update()
-{
+void ofxStyledLine::update(){
     
 }
 
 
 //----------------------------------------------------------
 void ofxStyledLine::setColor(ofDefaultColorType color){
-    flagHasChanged();
+    bHasColorChanged = true;
+    colors.resize( size() );
     std::fill( colors.begin(), colors.end(), color );
 }
 
 //----------------------------------------------------------
 std::vector< ofDefaultColorType > & ofxStyledLine::getColors(){
-    flagHasChanged();
+    bHasColorChanged = true;
     return colors;
 }
 
@@ -63,13 +62,13 @@ const std::vector< ofDefaultColorType > & ofxStyledLine::getColors() const {
 
 //----------------------------------------------------------
 void ofxStyledLine::setThickness( float thickness ){
-    flagHasChanged();
+    bHasThicknessChanged = true;
     std::fill( thicknesses.begin(), thicknesses.end(), thickness );
 }
 
 //----------------------------------------------------------
 std::vector< float > & ofxStyledLine::getThicknesses(){
-    flagHasChanged();
+    bHasThicknessChanged = true;
     return thicknesses;
 }
 
@@ -101,6 +100,8 @@ const patternDefinition& ofxStyledLine::getPattern() const{
 void ofxStyledLine::draw(){
     if( size() <= 1) return;  // size() returns the number of points. We need at least 2 point to draw a line!!
     if( hasChanged() ){
+        ofLogError() << "hasChanged" << ofGetFrameNum(); 
+        vbo.clear();
         if( pattern.size() <= 1 ){
             vbo.setVertexData( &getVertices()[0], size(), GL_DYNAMIC_DRAW );
             vbo.setIndexData( &indices[0], indices.size(), GL_DYNAMIC_DRAW );
@@ -108,14 +109,37 @@ void ofxStyledLine::draw(){
             vbo.setAttributeData(shader.getAttributeLocation("thickness"), &thicknesses[0], 1, thicknesses.size(), GL_DYNAMIC_DRAW);
             numberOfRenderedElements = 4*(size() - 1);
         }else{
+	        updatePatternVertices();
             vbo.setVertexData( &patternedVertices[0], patternedVertices.size(), GL_DYNAMIC_DRAW );
             vbo.setColorData( &patternedColor[0], patternedColor.size() ,GL_DYNAMIC_DRAW );
             vbo.setIndexData( &patternedIndices[0], patternedIndices.size(), GL_DYNAMIC_DRAW );
             vbo.setAttributeData(shader.getAttributeLocation("thickness"), &patternedThicknesses[0], 1, patternedThicknesses.size(), GL_DYNAMIC_DRAW);
+            ofLogError() << "Vertices : "<< patternedVertices.size() << " - Indexes : " << patternedIndices.size() << " - Colors : " << patternedColor.size();
             numberOfRenderedElements = 4*(patternedVertices.size() - 1);
         }
+        hasChanged(); // has getVertices() make ofPolyline think it was modified.
+        bHasColorChanged = false;
+        bHasThicknessChanged = false;
     }
     
+    if( bHasColorChanged ){
+        if( pattern.size() <= 1 ){
+            vbo.updateColorData( &colors[0], colors.size() );
+        }else{
+            updatePatternColors();
+            vbo.updateColorData( &patternedColor[0], patternedColor.size() );
+        }
+        bHasColorChanged = false;
+    }
+    if( bHasThicknessChanged ){
+        if( pattern.size() <= 1 ){
+            vbo.updateAttributeData( shader.getAttributeLocation("thickness"), &thicknesses[0], thicknesses.size() );
+        }else{
+            updatePatternThicknesses();
+            vbo.updateAttributeData( shader.getAttributeLocation("thickness"), &patternedThicknesses[0], patternedThicknesses.size() );
+        }
+        bHasThicknessChanged = false;
+    }
     shader.begin();
 		vbo.drawElements( GL_LINES_ADJACENCY, numberOfRenderedElements );
 	shader.end();
@@ -131,8 +155,9 @@ void ofxStyledLine::updatePatternVertices(){
 
     patternedVertices.clear();
     patternedIndices.clear();
-    patternedColor.clear();
+    patternedFloatIndices.clear();
     patternedVertices.push_back( getVertices()[0] );
+    patternedFloatIndices.push_back( 0.0 );
 
     while( l < getPerimeter() ){ // Perimeter is also the length for a non close polyline...
         l += pattern[patternIndex];
@@ -147,8 +172,7 @@ void ofxStyledLine::updatePatternVertices(){
         while( (vertexIndex < size()) 
             && (l >= getLengthAtIndex( vertexIndex)) ){
             patternedVertices.push_back( getVertices()[vertexIndex] );
-            patternedColor.push_back(ofDefaultColorType(0.0,1.0,0.5));
-            patternedThicknesses.push_back(10.0);
+            patternedFloatIndices.push_back( float(vertexIndex) );
             if( isSolidPart ) {
                 patternVertexIndices.push_back( patternedVertices.size()-1 );
             }
@@ -156,8 +180,7 @@ void ofxStyledLine::updatePatternVertices(){
         }
         if( l > getLengthAtIndex( vertexIndex-1 )){
             patternedVertices.push_back( getPointAtLength(l) );
-            patternedColor.push_back(ofDefaultColorType(0.0,1.0,0.5));
-            patternedThicknesses.push_back(10.0);
+            patternedFloatIndices.push_back( getIndexAtLength(l) );
             if( isSolidPart ) patternVertexIndices.push_back( patternedVertices.size()-1 );
         }
         patternIndex = (patternIndex + 1)%pattern.size();
@@ -165,7 +188,43 @@ void ofxStyledLine::updatePatternVertices(){
         for( auto & i : computeAdjacency(patternVertexIndices) ){
             patternedIndices.push_back( i );
         }
-    }    
+    }
+    updatePatternColors();
+    updatePatternThicknesses();
+}
+
+void ofxStyledLine::updatePatternColors(bool continuous){
+    patternedColor.clear();
+    for( auto& idx : patternedFloatIndices ){
+        idx = abs(idx);  // To avoid problems with 
+    
+        float lo = floor( idx );
+        float iIdx = size_t(lo);
+        float percent = (continuous)?idx-lo:0.0;
+        
+        if( iIdx < size() ){
+            patternedColor.push_back( (1.0 - percent)*colors[iIdx]+(percent)*colors[iIdx+1] );
+        }else{
+            patternedColor.push_back( colors[iIdx] );
+        }
+    }
+}
+
+void ofxStyledLine::updatePatternThicknesses(bool continuous){
+    patternedThicknesses.clear();
+    for( auto& idx : patternedFloatIndices ){
+        idx = abs(idx);  // To avoid problems with 
+    
+        float lo = floor( idx );
+        float iIdx = size_t(lo);
+        float percent = (continuous)?idx-lo:0.0;
+        
+        if( iIdx < size() ){
+            patternedThicknesses.push_back( (1.0 - percent)*thicknesses[iIdx] + (percent)*thicknesses[iIdx+1] );
+        }else{
+            patternedThicknesses.push_back( thicknesses[iIdx] );
+        }
+    }
 }
 
 //----------------------------------------------------------

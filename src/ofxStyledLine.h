@@ -20,8 +20,12 @@ private:
     patternDefinition pattern; // If empty or one element, solid line. Else alternate of solid /empty
     std::vector< ofDefaultVertexType > patternedVertices; // Include extra vertex due to stipple definition
     std::vector< unsigned int > patternedIndices;
+    std::vector< float > patternedFloatIndices;  // For each vertices in patternVertices, gives the float index (for example 5.75)
     std::vector< ofDefaultColorType > patternedColor;
     std::vector< float > patternedThicknesses; // Thickness per vertex
+
+    bool bHasColorChanged;
+    bool bHasThicknessChanged;
 
     /// \brief Compute adjacency array from a list of vertices index
     std::vector< unsigned int > computeAdjacency( std::vector< unsigned int > vertexIndices );
@@ -31,6 +35,8 @@ public:
     ~ofxStyledLine();
 
     void updatePatternVertices();
+    void updatePatternColors( bool continuous = false );
+    void updatePatternThicknesses( bool continuous = true );
 
     void addVertex( const ofDefaultVertexType& p );
 
