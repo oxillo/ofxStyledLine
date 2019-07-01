@@ -1,1 +1,4 @@
 .vscode/**
+example*/obj/*
+example*/*.exe
+example*/*.dll
