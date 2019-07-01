@@ -5,9 +5,10 @@ Description
 -----------
 
 ofxStyledLines is an Open Frameworks addon that extends ofPolyline to :
-    - set the width/thickness of the line
-    - control the colors of the line on each segment
-    - control the stipple (dash, dot, )
+
+- set the width/thickness of the line
+- control the colors of the line on each segment
+- control the stipple (dash, dot, )
 
 
 
@@ -29,5 +30,5 @@ Notes
 Developing ofxStyledLines
 -----------------------
 
-ofxStyledLines was originally developped by Olivier XILLO (oxillo@hotmail.com)
+ofxStyledLines was originally developped by Olivier XILLO
 Feel free to reports bug and issues 
