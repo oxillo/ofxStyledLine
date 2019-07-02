@@ -30,6 +30,9 @@ private:
     /// \brief Compute adjacency array from a list of vertices index
     std::vector< unsigned int > computeAdjacency( std::vector< unsigned int > vertexIndices );
 
+    /// \brief Compute adjacency array from consecutive elements [0,1,2,3,...]
+    std::vector< unsigned int > computeAdjacency( size_t nbElements );
+
 public:
     ofxStyledLine(/* args */);
     ~ofxStyledLine();
@@ -38,7 +41,7 @@ public:
     void updatePatternColors( bool continuous = false );
     void updatePatternThicknesses( bool continuous = true );
 
-    void addVertex( const ofDefaultVertexType& p );
+    //void addVertex( const ofDefaultVertexType& p );
 
     /// \brief Returns whether the line has been modified (vertices, colors, ...).
 	//bool hasChanged();

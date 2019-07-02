@@ -14,27 +14,13 @@ ofxStyledLine::ofxStyledLine(/* args */){
 ofxStyledLine::~ofxStyledLine(){
 }
 
-void ofxStyledLine::addVertex( const ofDefaultVertexType& p ){
+/* void ofxStyledLine::addVertex( const ofDefaultVertexType& p ){
     ofPolyline::addVertex(p);
-    colors.push_back( ofDefaultColorType(1.0,0.5,0.5) );
-    thicknesses.push_back( 10.0);
-    if( size() == 1 ) return;
-    if( size() == 2 ){
-        indices.push_back(0);
-        indices.push_back(0);
-        indices.push_back(1);
-        indices.push_back(1);
-    }
-    if( size() > 2 ){
-        unsigned int last = size()-1;
-        indices.back() = last;  // Update last line adjacency
-        // New line adjacency
-        indices.push_back( last - 2 );
-        indices.push_back( last - 1 );
-        indices.push_back( last );
-        indices.push_back( last );
-    }
-}
+    //colors.push_back( ofDefaultColorType(1.0,0.5,0.5) );
+    //thicknesses.push_back( 10.0);
+    
+    //indices = computeAdjacency(size());
+}*/
 
 
 void ofxStyledLine::update(){
@@ -243,4 +229,13 @@ std::vector< unsigned int > ofxStyledLine::computeAdjacency( std::vector< unsign
         adjacency.push_back( (i+2<vertexIndices.size())?vertexIndices[i+2]:vertexIndices[i+1] );
     }
     return adjacency;
+}
+
+//----------------------------------------------------------
+std::vector< unsigned int > ofxStyledLine::computeAdjacency( size_t nbElements ){
+    std::vector< unsigned int> ind(nbElements);
+    for( unsigned int i=0; i<ind.size();++i){ //0,1,2,3,... nbElements-1
+        ind[i]=i;
+    }
+    return computeAdjacency( ind );
 }
