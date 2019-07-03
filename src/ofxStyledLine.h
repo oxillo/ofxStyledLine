@@ -33,6 +33,18 @@ private:
     /// \brief Compute adjacency array from consecutive elements [0,1,2,3,...]
     std::vector< unsigned int > computeAdjacency( size_t nbElements );
 
+    /// \brief makes the color array size matches the polyline size.
+    /// If empty, fill with white color
+    /// If too small, extend with the color of the last element
+    /// If too large, discard extra elements.
+    void updateColors();
+
+    /// \brief makes the thicknesses array size matches the polyline size.
+    /// If empty, fill with 1.0 thickness
+    /// If too small, extend with the thickness of the last element
+    /// If too large, discard extra elements.
+    void updateThicknesses();
+
 public:
     ofxStyledLine(/* args */);
     ~ofxStyledLine();
@@ -75,5 +87,12 @@ public:
 
     void update();
     void draw();
+
+#ifdef OFXSTYLEDLINE_UNITTESTING
+    const std::vector< ofDefaultVertexType >& getPatternedVertices() {
+        updatePatternVertices();
+        return patternedVertices;
+    }
+#endif
 
 };

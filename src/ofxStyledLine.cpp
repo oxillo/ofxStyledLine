@@ -49,6 +49,7 @@ const std::vector< ofDefaultColorType > & ofxStyledLine::getColors() const {
 //----------------------------------------------------------
 void ofxStyledLine::setThickness( float thickness ){
     bHasThicknessChanged = true;
+    thicknesses.resize( size() );
     std::fill( thicknesses.begin(), thicknesses.end(), thickness );
 }
 
@@ -179,7 +180,16 @@ void ofxStyledLine::updatePatternVertices(){
     updatePatternThicknesses();
 }
 
+void ofxStyledLine::updateColors(){
+    if( colors.empty() ) setColor( ofDefaultColorType(1.,1.,1.));
+    while( colors.size() < size() ){
+        colors.push_back( colors.back() );
+    }
+    colors.resize( size() );
+}
+
 void ofxStyledLine::updatePatternColors(bool continuous){
+    updateColors();
     patternedColor.clear();
     for( auto& idx : patternedFloatIndices ){
         idx = abs(idx);  // To avoid problems with 
@@ -196,7 +206,16 @@ void ofxStyledLine::updatePatternColors(bool continuous){
     }
 }
 
+void ofxStyledLine::updateThicknesses(){
+    if( thicknesses.empty() ) setThickness( 1.);
+    while( thicknesses.size() < size() ){
+        thicknesses.push_back( thicknesses.back() );
+    }
+    thicknesses.resize( size() );
+}
+
 void ofxStyledLine::updatePatternThicknesses(bool continuous){
+    updateThicknesses();
     patternedThicknesses.clear();
     for( auto& idx : patternedFloatIndices ){
         idx = abs(idx);  // To avoid problems with 
