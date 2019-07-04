@@ -45,6 +45,8 @@ private:
     /// If too large, discard extra elements.
     void updateThicknesses();
 
+    unsigned int getPatternIndexAtLength( float length);
+
 public:
     ofxStyledLine(/* args */);
     ~ofxStyledLine();

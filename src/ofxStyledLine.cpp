@@ -87,21 +87,38 @@ const patternDefinition& ofxStyledLine::getPattern() const{
 void ofxStyledLine::draw(){
     if( size() <= 1) return;  // size() returns the number of points. We need at least 2 point to draw a line!!
     if( hasChanged() ){
-        ofLogError() << "hasChanged" << ofGetFrameNum(); 
         vbo.clear();
         if( pattern.size() <= 1 ){
+            indices = computeAdjacency(size());
+            numberOfRenderedElements = 4*(size() - 1);
+            if( isClosed() ){
+                size_t last = size() - 1;
+                indices[0] = last;
+                indices.back() = 0;
+                indices.push_back(last-1);
+                indices.push_back(last);
+                indices.push_back(0);
+                indices.push_back(1);
+                numberOfRenderedElements +=4;
+            }
             vbo.setVertexData( &getVertices()[0], size(), GL_DYNAMIC_DRAW );
             vbo.setIndexData( &indices[0], indices.size(), GL_DYNAMIC_DRAW );
+            if( colors.empty() ){
+                setColor( ofDefaultColorType(1.,1.,1.));
+            }
             vbo.setColorData( &colors[0], colors.size() ,GL_DYNAMIC_DRAW );
+            if( thicknesses.empty() ){
+                setThickness( 1.0 );
+            }
             vbo.setAttributeData(shader.getAttributeLocation("thickness"), &thicknesses[0], 1, thicknesses.size(), GL_DYNAMIC_DRAW);
-            numberOfRenderedElements = 4*(size() - 1);
+            
         }else{
-	        updatePatternVertices();
+            updatePatternVertices();
+            //ofLogError() << "Vertices : "<< patternedVertices.size() << " - Indexes : " << patternedIndices.size() << " - Colors : " << patternedColor.size();
             vbo.setVertexData( &patternedVertices[0], patternedVertices.size(), GL_DYNAMIC_DRAW );
             vbo.setColorData( &patternedColor[0], patternedColor.size() ,GL_DYNAMIC_DRAW );
             vbo.setIndexData( &patternedIndices[0], patternedIndices.size(), GL_DYNAMIC_DRAW );
             vbo.setAttributeData(shader.getAttributeLocation("thickness"), &patternedThicknesses[0], 1, patternedThicknesses.size(), GL_DYNAMIC_DRAW);
-            ofLogError() << "Vertices : "<< patternedVertices.size() << " - Indexes : " << patternedIndices.size() << " - Colors : " << patternedColor.size();
             numberOfRenderedElements = 4*(patternedVertices.size() - 1);
         }
         hasChanged(); // has getVertices() make ofPolyline think it was modified.
@@ -135,7 +152,7 @@ void ofxStyledLine::draw(){
 //----------------------------------------------------------
 void ofxStyledLine::updatePatternVertices(){
     float l = 0.0;
-    size_t vertexIndex = 1;
+    size_t vertexIndex = 0;
     size_t patternIndex = 0;
     std::vector<size_t> patternVertexIndices;
     bool isSolidPart;
@@ -143,39 +160,53 @@ void ofxStyledLine::updatePatternVertices(){
     patternedVertices.clear();
     patternedIndices.clear();
     patternedFloatIndices.clear();
-    patternedVertices.push_back( getVertices()[0] );
-    patternedFloatIndices.push_back( 0.0 );
-
-    while( l < getPerimeter() ){ // Perimeter is also the length for a non close polyline...
+    //patternedVertices.push_back( getVertices()[0] );
+    //patternedFloatIndices.push_back( 0.0 );
+    std::vector< float > patternedLength;
+    patternedLength.clear();
+    do{
+        float fIndex = getIndexAtLength(l);
+        patternedFloatIndices.push_back( fIndex );
+        patternedLength.push_back(l);
+        //ofLogError() << l << "  fidx " << fIndex << " point : "<< getPointAtIndexInterpolated(fIndex);
         l += pattern[patternIndex];
-        l = ofClamp( l, 0, getPerimeter() );
-
-        patternVertexIndices.clear();
-        isSolidPart = ((patternIndex+1) % 2);  // Solid part is for even indexes : index=2n => (2n+1)%2 = 1 => true
-        if( isSolidPart ) {
-            patternVertexIndices.push_back( patternedVertices.size()-1 );
-        }
-        
-        while( (vertexIndex < size()) 
-            && (l >= getLengthAtIndex( vertexIndex)) ){
-            patternedVertices.push_back( getVertices()[vertexIndex] );
-            patternedFloatIndices.push_back( float(vertexIndex) );
-            if( isSolidPart ) {
-                patternVertexIndices.push_back( patternedVertices.size()-1 );
-            }
-            vertexIndex++;
-        }
-        if( l > getLengthAtIndex( vertexIndex-1 )){
-            patternedVertices.push_back( getPointAtLength(l) );
-            patternedFloatIndices.push_back( getIndexAtLength(l) );
-            if( isSolidPart ) patternVertexIndices.push_back( patternedVertices.size()-1 );
-        }
         patternIndex = (patternIndex + 1)%pattern.size();
-        
-        for( auto & i : computeAdjacency(patternVertexIndices) ){
-            patternedIndices.push_back( i );
+    }while( l < getPerimeter() );
+
+    for( vertexIndex=0; vertexIndex < size(); vertexIndex++ ){
+        patternedFloatIndices.push_back( float(vertexIndex) );
+        patternedLength.push_back( getLengthAtIndex(vertexIndex) );
+    }
+    
+    std::sort( patternedLength.begin(), patternedLength.end() ); 
+    patternedLength.erase( std::unique( patternedLength.begin(), patternedLength.end()),
+                                 patternedLength.end() );
+    std::sort( patternedFloatIndices.begin(), patternedFloatIndices.end() ); 
+    patternedFloatIndices.erase( std::unique( patternedFloatIndices.begin(), patternedFloatIndices.end()),
+                                 patternedFloatIndices.end() );
+    for( auto& fidx : patternedFloatIndices ){
+        patternedVertices.push_back( getPointAtIndexInterpolated(fidx) );
+    }
+    
+    unsigned int plSize = patternedLength.size();
+    for( unsigned int i=0; i<plSize-1; i++ ){
+        unsigned int iminus1 = (i + plSize - 1)%plSize;
+        unsigned int iplus1 = (i + plSize + 1)%plSize;
+        unsigned int iplus2 = (i + plSize + 2)%plSize;
+
+        if( getPatternIndexAtLength( patternedLength[i] )%2==0 ){
+            patternedIndices.push_back(iminus1);
+            patternedIndices.push_back(i);
+            patternedIndices.push_back(iplus1);
+            patternedIndices.push_back(iplus2);
         }
     }
+    
+    if( !isClosed() ){
+        patternedIndices[0]=0;
+        patternedIndices.back()=patternedIndices[ patternedIndices.size() - 2 ];
+    }
+
     updatePatternColors();
     updatePatternThicknesses();
 }
@@ -221,15 +252,17 @@ void ofxStyledLine::updatePatternThicknesses(bool continuous){
         idx = abs(idx);  // To avoid problems with 
     
         float lo = floor( idx );
-        float iIdx = size_t(lo);
+        size_t iIdx = size_t(lo);
+        size_t nextIdx = (iIdx+1)%size();
         float percent = (continuous)?idx-lo:0.0;
         
-        if( iIdx < size() ){
-            patternedThicknesses.push_back( (1.0 - percent)*thicknesses[iIdx] + (percent)*thicknesses[iIdx+1] );
-        }else{
-            patternedThicknesses.push_back( thicknesses[iIdx] );
-        }
+        //if( iIdx < size() ){
+            patternedThicknesses.push_back( (1.0 - percent)*thicknesses[iIdx] + (percent)*thicknesses[nextIdx] );
+        //}else{
+            //patternedThicknesses.push_back( thicknesses[iIdx] );
+        //}
     }
+    if( isClosed() ) patternedThicknesses.push_back(thicknesses[0]);
 }
 
 //----------------------------------------------------------
@@ -257,4 +290,27 @@ std::vector< unsigned int > ofxStyledLine::computeAdjacency( size_t nbElements )
         ind[i]=i;
     }
     return computeAdjacency( ind );
+}
+
+//----------------------------------------------------------
+unsigned int ofxStyledLine::getPatternIndexAtLength( float length){
+    if( pattern.empty() ) return 0;
+    
+    // Compute pattern length
+    float patternLength = 0;
+    for( auto& l : pattern ){
+        patternLength += l;
+    }
+    while( length >= patternLength ){
+        length -= patternLength;
+    }
+    
+    patternLength = 0;
+    for( unsigned int idx = 0; idx < pattern.size(); idx++){
+        patternLength += pattern[idx];
+        if( patternLength > length ){
+            return idx;
+        }
+    }
+    return 0;
 }

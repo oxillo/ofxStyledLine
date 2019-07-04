@@ -14,27 +14,42 @@ class ofApp: public ofxUnitTestsApp{
 		line.addVertex(0,h);
 		line.addVertex(w,h);
 		line.addVertex(w,0);
-		ofxTestEq(line.getPerimeter(),h+w+h,"Perimeter of non closed");
+		ofxTestEq(line.getPerimeter(),h+w+h,"Perimeter of non closed rectangle :");
 		
 		line.setPattern({20.,30.});
-		//line.updatePatternVertices();
 		vertices = line.getPatternedVertices();
 		ofxTestEq(vertices.size(),9,"{20,30} pattern shall produce 9 vertices :");
 
 		line.setPattern({20.,20.});
-		//line.updatePatternVertices();
 		vertices = line.getPatternedVertices();
 		ofxTestEq(vertices.size(),13,"{20,20} pattern shall produce 13 vertices :");
 
 		line.setPattern({30.,30.});
-		//line.updatePatternVertices();
 		vertices = line.getPatternedVertices();
 		ofxTestEq(vertices.size(),9,"{30,30} pattern shall produce 9 vertices :");
 
 		line.setPattern({10.,10.,20.,5.});
-		//line.updatePatternVertices();
 		vertices = line.getPatternedVertices();
 		ofxTestEq(vertices.size(),21,"{10.,10.,20.,5.} pattern shall produce 21 vertices :");
+
+		line.close();
+		ofxTestEq(line.getPerimeter(),2.*(h+w),"Perimeter of non closed rectangle :");
+		
+		line.setPattern({20.,30.});
+		vertices = line.getPatternedVertices();
+		ofxTestEq(vertices.size(),12,"{20,30} pattern shall produce 12 vertices :");
+
+		line.setPattern({20.,20.});
+		vertices = line.getPatternedVertices();
+		ofxTestEq(vertices.size(),17,"{20,20} pattern shall produce 13 vertices :");
+
+		line.setPattern({30.,30.});
+		vertices = line.getPatternedVertices();
+		ofxTestEq(vertices.size(),12,"{30,30} pattern shall produce 9 vertices :");
+
+		line.setPattern({10.,10.,20.,5.});
+		vertices = line.getPatternedVertices();
+		ofxTestEq(vertices.size(),29,"{10.,10.,20.,5.} pattern shall produce 21 vertices :");
 	}
 
 	void run(){
