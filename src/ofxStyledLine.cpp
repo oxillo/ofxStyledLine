@@ -190,7 +190,6 @@ void ofxStyledLine::updatePatternVertices(){
 }
 
 //----------------------------------------------------------
-//----------------------------------------------------------
 void ofxStyledLine::updateColors(){
     if( colors.empty() ) setColor( ofDefaultColorType(1.,1.,1.));
     while( colors.size() < size() ){
@@ -199,6 +198,7 @@ void ofxStyledLine::updateColors(){
     colors.resize( size() );
 }
 
+//----------------------------------------------------------
 void ofxStyledLine::updatePatternColors(bool continuous){
     updateColors();
     patternedColor.clear();
@@ -216,7 +216,9 @@ void ofxStyledLine::updatePatternColors(bool continuous){
         }
     }
 }
+}
 
+//----------------------------------------------------------
 void ofxStyledLine::updateThicknesses(){
     if( thicknesses.empty() ) setThickness( 1.);
     while( thicknesses.size() < size() ){
@@ -225,6 +227,7 @@ void ofxStyledLine::updateThicknesses(){
     thicknesses.resize( size() );
 }
 
+//----------------------------------------------------------
 void ofxStyledLine::updatePatternThicknesses(bool continuous){
     updateThicknesses();
     patternedThicknesses.clear();
@@ -274,7 +277,7 @@ std::vector< unsigned int > ofxStyledLine::computeAdjacency( size_t nbElements )
 
 //----------------------------------------------------------
 unsigned int ofxStyledLine::getPatternIndexAtLength( float length){
-    if( pattern.empty() ) return 0;
+    if( pattern.size() <2 ) return 0;
     
     // Compute pattern length
     float patternLength = 0;
