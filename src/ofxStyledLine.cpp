@@ -14,15 +14,6 @@ ofxStyledLine::ofxStyledLine(/* args */){
 ofxStyledLine::~ofxStyledLine(){
 }
 
-/* void ofxStyledLine::addVertex( const ofDefaultVertexType& p ){
-    ofPolyline::addVertex(p);
-    //colors.push_back( ofDefaultColorType(1.0,0.5,0.5) );
-    //thicknesses.push_back( 10.0);
-    
-    //indices = computeAdjacency(size());
-}*/
-
-
 void ofxStyledLine::update(){
     
 }
@@ -88,44 +79,18 @@ void ofxStyledLine::draw(){
     if( size() <= 1) return;  // size() returns the number of points. We need at least 2 point to draw a line!!
     if( hasChanged() ){
         vbo.clear();
-        if( pattern.size() <= 1 ){
-            indices = computeAdjacency(size());
-            numberOfRenderedElements = 4*(size() - 1);
-            if( isClosed() ){
-                size_t last = size() - 1;
-                indices[0] = last;
-                indices.back() = 0;
-                indices.push_back(last-1);
-                indices.push_back(last);
-                indices.push_back(0);
-                indices.push_back(1);
-                numberOfRenderedElements +=4;
-            }
-            vbo.setVertexData( &getVertices()[0], size(), GL_DYNAMIC_DRAW );
-            vbo.setIndexData( &indices[0], indices.size(), GL_DYNAMIC_DRAW );
-            if( colors.empty() ){
-                setColor( ofDefaultColorType(1.,1.,1.));
-            }
-            vbo.setColorData( &colors[0], colors.size() ,GL_DYNAMIC_DRAW );
-            if( thicknesses.empty() ){
-                setThickness( 1.0 );
-            }
-            vbo.setAttributeData(shader.getAttributeLocation("thickness"), &thicknesses[0], 1, thicknesses.size(), GL_DYNAMIC_DRAW);
-            
-        }else{
-            updatePatternVertices();
-            //ofLogError() << "Vertices : "<< patternedVertices.size() << " - Indexes : " << patternedIndices.size() << " - Colors : " << patternedColor.size();
-            vbo.setVertexData( &patternedVertices[0], patternedVertices.size(), GL_DYNAMIC_DRAW );
-            vbo.setColorData( &patternedColor[0], patternedColor.size() ,GL_DYNAMIC_DRAW );
-            vbo.setIndexData( &patternedIndices[0], patternedIndices.size(), GL_DYNAMIC_DRAW );
-            vbo.setAttributeData(shader.getAttributeLocation("thickness"), &patternedThicknesses[0], 1, patternedThicknesses.size(), GL_DYNAMIC_DRAW);
-            numberOfRenderedElements = 4*(patternedVertices.size() - 1);
-        }
+        updatePatternVertices();
+        vbo.setVertexData( &patternedVertices[0], patternedVertices.size(), GL_DYNAMIC_DRAW );
+        vbo.setColorData( &patternedColor[0], patternedColor.size() ,GL_DYNAMIC_DRAW );
+        vbo.setIndexData( &patternedIndices[0], patternedIndices.size(), GL_DYNAMIC_DRAW );
+        vbo.setAttributeData(shader.getAttributeLocation("thickness"), &patternedThicknesses[0], 1, patternedThicknesses.size(), GL_DYNAMIC_DRAW);
+        numberOfRenderedElements = 4*(patternedVertices.size() - 1);
         hasChanged(); // has getVertices() make ofPolyline think it was modified.
         bHasColorChanged = false;
         bHasThicknessChanged = false;
     }
-    
+
+    // Update colors if needed
     if( bHasColorChanged ){
         if( pattern.size() <= 1 ){
             vbo.updateColorData( &colors[0], colors.size() );
@@ -135,6 +100,8 @@ void ofxStyledLine::draw(){
         }
         bHasColorChanged = false;
     }
+
+    // Update line thickness if needed
     if( bHasThicknessChanged ){
         if( pattern.size() <= 1 ){
             vbo.updateAttributeData( shader.getAttributeLocation("thickness"), &thicknesses[0], thicknesses.size() );
@@ -144,6 +111,8 @@ void ofxStyledLine::draw(){
         }
         bHasThicknessChanged = false;
     }
+
+    // Draw the petterned lines
     shader.begin();
 		vbo.drawElements( GL_LINES_ADJACENCY, numberOfRenderedElements );
 	shader.end();
@@ -160,30 +129,39 @@ void ofxStyledLine::updatePatternVertices(){
     patternedVertices.clear();
     patternedIndices.clear();
     patternedFloatIndices.clear();
-    //patternedVertices.push_back( getVertices()[0] );
-    //patternedFloatIndices.push_back( 0.0 );
+    
+    // Compute the extremities of each dash on the line by applying the pattern until we reach the end of the line
     std::vector< float > patternedLength;
     patternedLength.clear();
-    do{
-        float fIndex = getIndexAtLength(l);
-        patternedFloatIndices.push_back( fIndex );
-        patternedLength.push_back(l);
-        //ofLogError() << l << "  fidx " << fIndex << " point : "<< getPointAtIndexInterpolated(fIndex);
-        l += pattern[patternIndex];
-        patternIndex = (patternIndex + 1)%pattern.size();
-    }while( l < getPerimeter() );
 
+    // Add all the points of the polyline
     for( vertexIndex=0; vertexIndex < size(); vertexIndex++ ){
         patternedFloatIndices.push_back( float(vertexIndex) );
         patternedLength.push_back( getLengthAtIndex(vertexIndex) );
     }
     
+    // Compute extra points that are extremities of patttern dashes
+    float perimeter = getPerimeter(); // Cache the perimeter value
+    if( pattern.size() >=2 ){
+        do{
+            float fIndex = getIndexAtLength(l);
+            patternedFloatIndices.push_back( fIndex );
+            patternedLength.push_back(l);
+            //ofLogError() << l << "  fidx " << fIndex << " point : "<< getPointAtIndexInterpolated(fIndex);
+            l += pattern[patternIndex];
+            patternIndex = (patternIndex + 1)%pattern.size();
+        }while( l < perimeter );
+    }
+
+    // Reorder points and remove duplicates
     std::sort( patternedLength.begin(), patternedLength.end() ); 
     patternedLength.erase( std::unique( patternedLength.begin(), patternedLength.end()),
                                  patternedLength.end() );
     std::sort( patternedFloatIndices.begin(), patternedFloatIndices.end() ); 
     patternedFloatIndices.erase( std::unique( patternedFloatIndices.begin(), patternedFloatIndices.end()),
                                  patternedFloatIndices.end() );
+    
+    // Compute vertices from their index on the polyline
     for( auto& fidx : patternedFloatIndices ){
         patternedVertices.push_back( getPointAtIndexInterpolated(fidx) );
     }
@@ -211,6 +189,8 @@ void ofxStyledLine::updatePatternVertices(){
     updatePatternThicknesses();
 }
 
+//----------------------------------------------------------
+//----------------------------------------------------------
 void ofxStyledLine::updateColors(){
     if( colors.empty() ) setColor( ofDefaultColorType(1.,1.,1.));
     while( colors.size() < size() ){
