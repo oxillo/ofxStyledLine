@@ -12,3 +12,6 @@ tests/obj/*
 tests/bin/*.exe
 tests/bin/*.dll
 tests/bin/data/shaders/
+
+#ignore Doxygen generated files
+docs/*

@@ -19,7 +19,7 @@ void ofLogoLineaStyle( ofxStyledLine& line){
 	line.addVertex( ofPoint(  180.0,   60.0));
 	line.addVertex( ofPoint(  120.0,   60.0)); //15
 	line.addVertex( ofPoint(  120.0,  120.0)); //
-	line.addVertex( ofPoint(  280.0,  120.0)); // end of F
+	line.addVertex( ofPoint(  280.0,  140.0)); // end of F
 	//line.addVertex( ofPoint(  200.0,  120.0)); //18
 }
 
@@ -32,8 +32,8 @@ void ofApp::setup(){
 	//ofEnableAlphaBlending();
 
 	ofLogoLineaStyle(sline);
-	sline.setColor( ofDefaultColorType(1.,1.,1.)); 
-	sline.setThickness(3.0);
+	//sline.setColor( ofDefaultColorType(1.,1.,1.)); 
+	//sline.setThickness(3.0);
 
 
 	

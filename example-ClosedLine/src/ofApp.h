@@ -27,6 +27,7 @@ class ofApp : public ofBaseApp{
 		ofxStyledLine oLetter;
 		ofxStyledLine fLetter;
 		ofxStyledLine rectangle;
+		ofxStyledLine circle;
 		int state;
 };
 

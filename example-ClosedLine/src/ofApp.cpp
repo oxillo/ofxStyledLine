@@ -67,6 +67,7 @@ void ofApp::draw(){
 		ofPushMatrix();
 			ofTranslate(-120, 0, 0);
 			oLetter.draw();
+			circle.draw();
 		ofPopMatrix();	
 		fLetter.draw();
 		rectangle.draw();

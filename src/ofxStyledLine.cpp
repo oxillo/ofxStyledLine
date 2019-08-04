@@ -78,13 +78,9 @@ const patternDefinition& ofxStyledLine::getPattern() const{
 void ofxStyledLine::draw(){
     if( size() <= 1) return;  // size() returns the number of points. We need at least 2 point to draw a line!!
     if( hasChanged() ){
-        vbo.clear();
         updatePatternVertices();
-        vbo.setVertexData( &patternedVertices[0], patternedVertices.size(), GL_DYNAMIC_DRAW );
         vbo.setColorData( &patternedColor[0], patternedColor.size() ,GL_DYNAMIC_DRAW );
-        vbo.setIndexData( &patternedIndices[0], patternedIndices.size(), GL_DYNAMIC_DRAW );
         vbo.setAttributeData(shader.getAttributeLocation("thickness"), &patternedThicknesses[0], 1, patternedThicknesses.size(), GL_DYNAMIC_DRAW);
-        numberOfRenderedElements = 4*(patternedVertices.size() - 1);
         hasChanged(); // has getVertices() make ofPolyline think it was modified.
         bHasColorChanged = false;
         bHasThicknessChanged = false;
@@ -92,98 +88,111 @@ void ofxStyledLine::draw(){
 
     // Update colors if needed
     if( bHasColorChanged ){
-        if( pattern.size() <= 1 ){
-            vbo.updateColorData( &colors[0], colors.size() );
-        }else{
-            updatePatternColors();
-            vbo.updateColorData( &patternedColor[0], patternedColor.size() );
-        }
+        updatePatternColors();
+        vbo.updateColorData( &patternedColor[0], patternedColor.size() );
         bHasColorChanged = false;
     }
 
     // Update line thickness if needed
     if( bHasThicknessChanged ){
-        if( pattern.size() <= 1 ){
-            vbo.updateAttributeData( shader.getAttributeLocation("thickness"), &thicknesses[0], thicknesses.size() );
-        }else{
-            updatePatternThicknesses();
-            vbo.updateAttributeData( shader.getAttributeLocation("thickness"), &patternedThicknesses[0], patternedThicknesses.size() );
-        }
+        updatePatternThicknesses();
+        vbo.updateAttributeData( shader.getAttributeLocation("thickness"), &patternedThicknesses[0], patternedThicknesses.size() );
         bHasThicknessChanged = false;
     }
 
     // Draw the petterned lines
     shader.begin();
-		vbo.drawElements( GL_LINES_ADJACENCY, numberOfRenderedElements );
+		vbo.drawElements( GL_LINES_ADJACENCY, 4*numberOfRenderedElements );
 	shader.end();
 }
 
 //----------------------------------------------------------
 void ofxStyledLine::updatePatternVertices(){
-    float l = 0.0;
-    size_t vertexIndex = 0;
-    size_t patternIndex = 0;
-    std::vector<size_t> patternVertexIndices;
-    bool isSolidPart;
+    const float totalLength = getPerimeter(); // Cache the length (or perimeter) of the line
+    bool isSolid = (pattern.size() < 2);
 
-    patternedVertices.clear();
-    patternedIndices.clear();
-    patternedFloatIndices.clear();
     
     // Compute the extremities of each dash on the line by applying the pattern until we reach the end of the line
     std::vector< float > patternedLength;
     patternedLength.clear();
 
-    // Add all the points of the polyline
-    for( vertexIndex=0; vertexIndex < size(); vertexIndex++ ){
-        patternedFloatIndices.push_back( float(vertexIndex) );
+    // Add all the points of the polyline. 
+    // Recompute the last index from the perimeter as it may be different if the line is closed (+1) or not.
+    size_t indexMax = size_t( getIndexAtLength( totalLength ) );
+    for( size_t vertexIndex=0; vertexIndex <= indexMax; vertexIndex++ ){
         patternedLength.push_back( getLengthAtIndex(vertexIndex) );
     }
+    if( isClosed() ){
+        patternedLength.push_back( totalLength );  // on closed line, getLengthAtIndex() returns 0 at the closing point, we want the perimeter..
+    }
     
-    // Compute extra points that are extremities of patttern dashes
-    float perimeter = getPerimeter(); // Cache the perimeter value
-    if( pattern.size() >=2 ){
+    // Compute point positions for every dash in the pattern
+    // Apply the pattern until the end of the line is reached
+    if( !isSolid ){
+        float l = 0.0;
+        size_t patternIndex = 0;
         do{
-            float fIndex = getIndexAtLength(l);
-            patternedFloatIndices.push_back( fIndex );
             patternedLength.push_back(l);
-            //ofLogError() << l << "  fidx " << fIndex << " point : "<< getPointAtIndexInterpolated(fIndex);
             l += pattern[patternIndex];
             patternIndex = (patternIndex + 1)%pattern.size();
-        }while( l < perimeter );
+        }while( l < totalLength );
     }
 
-    // Reorder points and remove duplicates
+    // Reorder point positions  and remove duplicates
     std::sort( patternedLength.begin(), patternedLength.end() ); 
     patternedLength.erase( std::unique( patternedLength.begin(), patternedLength.end()),
                                  patternedLength.end() );
-    std::sort( patternedFloatIndices.begin(), patternedFloatIndices.end() ); 
-    patternedFloatIndices.erase( std::unique( patternedFloatIndices.begin(), patternedFloatIndices.end()),
-                                 patternedFloatIndices.end() );
     
-    // Compute vertices from their index on the polyline
-    for( auto& fidx : patternedFloatIndices ){
+    // Compute vertices and float indices from their position (length) on the polyline
+    patternedVertices.clear();
+    patternedFloatIndices.clear();
+    for( auto& l : patternedLength ){
+        auto fidx = getIndexAtLength(l);
+        patternedFloatIndices.push_back(fidx);
         patternedVertices.push_back( getPointAtIndexInterpolated(fidx) );
     }
     
     unsigned int plSize = patternedLength.size();
-    for( unsigned int i=0; i<plSize-1; i++ ){
-        unsigned int iminus1 = (i + plSize - 1)%plSize;
-        unsigned int iplus1 = (i + plSize + 1)%plSize;
-        unsigned int iplus2 = (i + plSize + 2)%plSize;
-
+    patternedIndices.clear();
+    
+    auto nbSegments = plSize-1;
+    bool bLoop = isClosed();
+    // First segment
+    if( getPatternIndexAtLength( patternedLength[0] )%2==0 ){
+        patternedIndices.push_back(bLoop?nbSegments-1:0);
+        patternedIndices.push_back(0);
+        patternedIndices.push_back(1);
+        patternedIndices.push_back(2);
+    }
+    // Intermediate segments
+    for( unsigned int i=1; i<=nbSegments-3; i++ ){
         if( getPatternIndexAtLength( patternedLength[i] )%2==0 ){
-            patternedIndices.push_back(iminus1);
+            patternedIndices.push_back(i - 1);
             patternedIndices.push_back(i);
-            patternedIndices.push_back(iplus1);
-            patternedIndices.push_back(iplus2);
+            patternedIndices.push_back(i + 1);
+            patternedIndices.push_back(i + 2);
         }
     }
-    
-    if( !isClosed() ){
-        patternedIndices[0]=0;
-        patternedIndices.back()=patternedIndices[ patternedIndices.size() - 2 ];
+    // Segment before last
+    if( getPatternIndexAtLength( patternedLength[nbSegments-2] )%2==0 ){
+        patternedIndices.push_back(nbSegments-3);
+        patternedIndices.push_back(nbSegments-2);
+        patternedIndices.push_back(nbSegments-1);
+        patternedIndices.push_back(bLoop?0:nbSegments);
     }
+    // Last segment
+    if( getPatternIndexAtLength( patternedLength[nbSegments-1] )%2==0 ){
+        patternedIndices.push_back(nbSegments-2);
+        patternedIndices.push_back(nbSegments-1);
+        patternedIndices.push_back(bLoop?0:nbSegments); // in closed loop, this is the same as push_back(0) as last vertice = first vertice
+        patternedIndices.push_back(bLoop?1:nbSegments);
+    }
+
+    // Update the lines definition in the vertex buffer
+    vbo.clear();
+    vbo.setVertexData( &patternedVertices[0], patternedVertices.size(), GL_DYNAMIC_DRAW );
+    vbo.setIndexData( &patternedIndices[0], patternedIndices.size(), GL_DYNAMIC_DRAW );
+    numberOfRenderedElements = nbSegments;
 
     updatePatternColors();
     updatePatternThicknesses();
@@ -203,7 +212,7 @@ void ofxStyledLine::updatePatternColors(bool continuous){
     updateColors();
     patternedColor.clear();
     for( auto& idx : patternedFloatIndices ){
-        idx = abs(idx);  // To avoid problems with 
+        idx = abs(idx);  // To avoid problems with first index that may be slightlty below 0
     
         float lo = floor( idx );
         float iIdx = size_t(lo);
@@ -215,7 +224,6 @@ void ofxStyledLine::updatePatternColors(bool continuous){
             patternedColor.push_back( colors[iIdx] );
         }
     }
-}
 }
 
 //----------------------------------------------------------
