@@ -157,35 +157,82 @@ void ofxStyledLine::updatePatternVertices(){
     
     auto nbSegments = plSize-1;
     bool bLoop = isClosed();
+    
+    // For each segment, compute it's position in the pattern
+    std::vector< bool > drawnSegments;
+    for( unsigned int i=0; i<nbSegments; i++ ){
+        float middle = 0.5*( patternedLength[i] + patternedLength[i+1] );
+        bool isDrawn = ( getPatternIndexAtLength( middle ) % 2 == 0);
+        drawnSegments.push_back( isDrawn );
+    }
+
     // First segment
-    if( getPatternIndexAtLength( patternedLength[0] )%2==0 ){
-        patternedIndices.push_back(bLoop?nbSegments-1:0);
+    if( drawnSegments[0] ){
+        if( bLoop && drawnSegments[nbSegments-1] ){
+            patternedIndices.push_back(nbSegments-1);
+        }else{
+            patternedIndices.push_back(0);
+        }
         patternedIndices.push_back(0);
         patternedIndices.push_back(1);
-        patternedIndices.push_back(2);
+        if( drawnSegments[1] ){
+            patternedIndices.push_back(2);
+        }else{
+            patternedIndices.push_back(1);
+        }
     }
     // Intermediate segments
     for( unsigned int i=1; i<=nbSegments-3; i++ ){
-        if( getPatternIndexAtLength( patternedLength[i] )%2==0 ){
-            patternedIndices.push_back(i - 1);
+        if( drawnSegments[i] ){
+            if( drawnSegments[i-1] ){
+                patternedIndices.push_back(i - 1);
+            }else{
+                patternedIndices.push_back(i);
+            }
             patternedIndices.push_back(i);
             patternedIndices.push_back(i + 1);
-            patternedIndices.push_back(i + 2);
+            if( drawnSegments[i+1] ){
+                patternedIndices.push_back(i + 2);
+            }else{
+                patternedIndices.push_back(i + 1);
+            }
         }
     }
     // Segment before last
-    if( getPatternIndexAtLength( patternedLength[nbSegments-2] )%2==0 ){
-        patternedIndices.push_back(nbSegments-3);
+    if( drawnSegments[nbSegments-2] ){
+        if( drawnSegments[nbSegments-3] ){
+            patternedIndices.push_back(nbSegments-3);
+        }else{
+            patternedIndices.push_back(nbSegments-2);
+        }
         patternedIndices.push_back(nbSegments-2);
         patternedIndices.push_back(nbSegments-1);
-        patternedIndices.push_back(bLoop?0:nbSegments);
+        if( drawnSegments[nbSegments-1] ){
+            patternedIndices.push_back(bLoop?0:nbSegments);
+        }else{
+            patternedIndices.push_back(nbSegments-1);
+        }
     }
     // Last segment
-    if( getPatternIndexAtLength( patternedLength[nbSegments-1] )%2==0 ){
-        patternedIndices.push_back(nbSegments-2);
+    if( drawnSegments[nbSegments-1] ){
+        if( drawnSegments[nbSegments-2] ){
+            patternedIndices.push_back(nbSegments-2);
+        }else{
+            patternedIndices.push_back(nbSegments-1);
+        }
         patternedIndices.push_back(nbSegments-1);
-        patternedIndices.push_back(bLoop?0:nbSegments); // in closed loop, this is the same as push_back(0) as last vertice = first vertice
-        patternedIndices.push_back(bLoop?1:nbSegments);
+        if( bLoop ){
+            patternedIndices.push_back(0); // in closed loop, this is the same as push_back(0) as last vertice = first vertice
+            if( drawnSegments[0] ){
+                patternedIndices.push_back(1);
+            }else{
+                patternedIndices.push_back(0);
+            }
+        }else{
+            patternedIndices.push_back(nbSegments); // in closed loop, this is the same as push_back(0) as last vertice = first vertice
+            patternedIndices.push_back(nbSegments);
+        }
+        
     }
 
     // Update the lines definition in the vertex buffer

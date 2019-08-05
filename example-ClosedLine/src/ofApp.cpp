@@ -51,6 +51,11 @@ void ofApp::setup(){
 	rectangle.setThickness(20.0);
 	rectangle.setPattern({10.0,10.0});
 
+	circle.arc(ofPoint(0,0), 40, 40, 0, 360, 360);
+    circle.close();
+	circle.setColor( ofDefaultColorType(1.,0.,1.,0.5)); 
+	circle.setThickness(25.0);
+	//circle.setPattern({40.0,10.0});
 
 	state = 0;
 }
